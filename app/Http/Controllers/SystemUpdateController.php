@@ -1,3 +1,4 @@
+
 <?php
 
 namespace App\Http\Controllers;
@@ -35,7 +36,7 @@ class SystemUpdateController extends Controller
             return response()->json($response);
         }
         $validator = Validator::make($request->all(), [
-            'purchase_code' => 'required|alpha_dash',
+            'purchase_code' => 'required',
             'file' => 'required|file|mimes:zip',
         ]);
 
@@ -46,94 +47,76 @@ class SystemUpdateController extends Controller
             );
             return response()->json($response);
         }
-        try{
-            $app_url = (string)url('/');
-            $app_url = preg_replace('#^https?://#i', '', $app_url);
+        $app_url = (string)url('/');
+        $app_url = preg_replace('#^https?://#i', '', $app_url);
 
-            $curl = curl_init();
-            curl_setopt_array($curl, array(
-                CURLOPT_URL => 'https://wrteam.in/validator/eschool_validator?purchase_code=' . $request->purchase_code . '&domain_url=' . $app_url . '',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'GET',
-            ));
-            $response = curl_exec($curl);
-            $info = curl_getinfo($curl);
-            curl_close($curl);
-            $response = json_decode($response, true);
-            if ($response['error']) {
-                $response = array(
-                    'error' => true,
-                    'message' => $response["message"],
-                    'info' => $info
-                );
-                return response()->json($response);
-            } else {
-                if (!is_dir($this->destinationPath)) {
-                    mkdir($this->destinationPath, 0777, TRUE);
-                }
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://wrteam.in/validator/eschool_validator?purchase_code=' . $request->purchase_code . '&domain_url=' . $app_url . '',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+        ));
+        $response = curl_exec($curl);
+        $info = curl_getinfo($curl);
+        curl_close($curl);
+        $response = json_decode($response, true);
+        if ($response['error']) {
+            $response = array(
+                'error' => true,
+                'message' => $response["message"],
+                'info' => $info
+            );
+            return response()->json($response);
+        } else {
+            if (!is_dir($this->destinationPath)) {
+                mkdir($this->destinationPath, 0777, TRUE);
+            }
 
-                // zip upload
-                $zipfile = $request->file('file');
-                $fileName = $zipfile->getClientOriginalName();
-                $zipfile->move($this->destinationPath, $fileName);
+            // zip upload
+            $zipfile = $request->file('file');
+            $fileName = $zipfile->getClientOriginalName();
+            $zipfile->move($this->destinationPath, $fileName);
 
-                // $target_path = getcwd() . DIRECTORY_SEPARATOR;
-                $target_path = base_path();
+            // $target_path = getcwd() . DIRECTORY_SEPARATOR;
+            $target_path = base_path();
 
-                $zip = new ZipArchive();
-                $filePath = $this->destinationPath . '/' . $fileName;
-                $zipStatus = $zip->open($filePath);
-                if ($zipStatus) {
-                    $zip->extractTo($this->destinationPath);
-                    $zip->close();
-                    unlink($filePath);
+            $zip = new ZipArchive();
+            $filePath = $this->destinationPath . '/' . $fileName;
+            $zipStatus = $zip->open($filePath);
+            if ($zipStatus) {
+                $zip->extractTo($this->destinationPath);
+                $zip->close();
+                unlink($filePath);
 
-                    $ver_file = $this->destinationPath . 'version_info.php';
-                    $source_path = $this->destinationPath . 'source_code.zip';
-                    if (file_exists($ver_file) && file_exists($source_path)) {
-                        $ver_file1 = $target_path . 'version_info.php';
-                        $source_path1 = $target_path . 'source_code.zip';
-                        if (rename($ver_file, $ver_file1) && rename($source_path, $source_path1)) {
-                            $version_file = require_once($ver_file1);
-                            $current_version = getSettings('system_version');
-                            if ($current_version['system_version'] == $version_file['current_version']) {
-                                $zip1 = new ZipArchive();
-                                $zipFile1 = $zip1->open($source_path1);
-                                if ($zipFile1 === true) {
-                                    $zip1->extractTo($target_path); // change this to the correct site path
-                                    $zip1->close();
+                $ver_file = $this->destinationPath . 'version_info.php';
+                $source_path = $this->destinationPath . 'source_code.zip';
+                if (file_exists($ver_file) && file_exists($source_path)) {
+                    $ver_file1 = $target_path . 'version_info.php';
+                    $source_path1 = $target_path . 'source_code.zip';
+                    if (rename($ver_file, $ver_file1) && rename($source_path, $source_path1)) {
+                        $version_file = require_once($ver_file1);
+                        $current_version = getSettings('system_version');
+                        if ($current_version['system_version'] == $version_file['current_version']) {
+                            $zip1 = new ZipArchive();
+                            $zipFile1 = $zip1->open($source_path1);
+                            if ($zipFile1 === true) {
+                                $zip1->extractTo($target_path); // change this to the correct site path
+                                $zip1->close();
 
-                                    Artisan::call('migrate');
-                                    Artisan::call('db:seed --class=InstallationSeeder');
+                                Artisan::call('migrate');
+                                Artisan::call('db:seed --class=InstallationSeeder');
 
-                                    unlink($source_path1);
-                                    unlink($ver_file1);
-                                    Settings::where('type', 'system_version')->update([
-                                        'message' => $version_file['update_version']
-                                    ]);
-                                    $response = array(
-                                        'error' => false,
-                                        'message' => trans('system_update_successfully')
-                                    );
-                                    return response()->json($response);
-                                } else {
-                                    unlink($source_path1);
-                                    unlink($ver_file1);
-                                    $response = array(
-                                        'error' => true,
-                                        'message' => trans('something_wrong_try_again')
-                                    );
-                                    return response()->json($response);
-                                }
-                            } else if ($current_version['system_version'] == $version_file['update_version']) {
                                 unlink($source_path1);
                                 unlink($ver_file1);
+                                Settings::where('type', 'system_version')->update([
+                                    'message' => $version_file['update_version']
+                                ]);
                                 $response = array(
-                                    'error' => true,
-                                    'message' => trans('system_already_updated')
+                                    'error' => false,
+                                    'message' => trans('system_update_successfully')
                                 );
                                 return response()->json($response);
                             } else {
@@ -141,15 +124,24 @@ class SystemUpdateController extends Controller
                                 unlink($ver_file1);
                                 $response = array(
                                     'error' => true,
-                                    'message' => $current_version['system_version'] . ' ' . trans('your_version_update_nearest')
+                                    'message' => trans('something_wrong_try_again')
                                 );
                                 return response()->json($response);
                             }
-                        } else {
+                        } else if ($current_version['system_version'] == $version_file['update_version']) {
+                            unlink($source_path1);
+                            unlink($ver_file1);
                             $response = array(
                                 'error' => true,
-                                'message' => trans('invalid_zip_try_again'),
-                                'data' => 1,
+                                'message' => trans('system_already_updated')
+                            );
+                            return response()->json($response);
+                        } else {
+                            unlink($source_path1);
+                            unlink($ver_file1);
+                            $response = array(
+                                'error' => true,
+                                'message' => $current_version['system_version'] . ' ' . trans('your_version_update_nearest')
                             );
                             return response()->json($response);
                         }
@@ -157,26 +149,26 @@ class SystemUpdateController extends Controller
                         $response = array(
                             'error' => true,
                             'message' => trans('invalid_zip_try_again'),
-                            'data' => 2,
+                            'data' => 1,
                         );
                         return response()->json($response);
                     }
                 } else {
                     $response = array(
                         'error' => true,
-                        'message' => trans('something_wrong_try_again')
+                        'message' => trans('invalid_zip_try_again'),
+                        'data' => 2,
                     );
                     return response()->json($response);
                 }
+            } else {
+                $response = array(
+                    'error' => true,
+                    'message' => trans('something_wrong_try_again')
+                );
+                return response()->json($response);
             }
-        } catch (\Throwable $e) {
-            $response = array(
-                'error' => true,
-                'message' => trans('error_occurred'),
-                'data' => $e
-            );
         }
-        return response()->json($response);
 
     }
 }

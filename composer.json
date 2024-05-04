@@ -13,7 +13,7 @@
         "ext-zip": "*",
         "awobaz/compoships": "^2.1",
         "barryvdh/laravel-dompdf": "^2.0",
-        "dacoto/laravel-wizard-installer": "^4.0",
+       
         "doctrine/dbal": "^3.3",
         "fruitcake/laravel-cors": "^2.0.5",
         "google/apiclient": "^2.14",
