@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\ParentApiController;
 use App\Http\Controllers\Api\StudentApiController;
 use App\Http\Controllers\Api\TeacherApiController;
+use App\Http\Controllers\Api\SystemController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
@@ -19,11 +20,15 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+
+Route::get('/link-storage', [SystemController::class, 'linkStorage']);
+Route::get('/key-generate', [SystemController::class, 'keyGenerate']);
+
 Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('logout', [ApiController::class, 'logout']);
 });
 
-/**
+/**   hoolid
  * STUDENT APIs Hola
  **/
 Route::group(['prefix' => 'student'], function () {
