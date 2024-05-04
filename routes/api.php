@@ -24,7 +24,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 });
 
 /**
- * STUDENT APIs
+ * STUDENT APIs Hola
  **/
 Route::group(['prefix' => 'student'], function () {
 
